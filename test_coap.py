@@ -4,15 +4,31 @@ import asyncio
 from aiocoap import *
 
 # put your board's IP address here
-board_IP = "192.168.8.92"
+board_IP = "[FE80::C295:DAFF:FE01:7BA7]"
 
 # un comment the type of test you want to execute
-METHOD = "GET"
+#LED Control
 #METHOD = "PUT"
-#METHOD = "DELETE"
+#URI = "led"
+#PAYLOAD = b"1" #1 on, 0 off
 
-URI = "sensor"
-PAYLOAD = b"1"
+#Sensor Temperature Measure
+#METHOD = "GET"
+#URI = "sensor"
+
+#Name GET
+METHOD = "GET"
+URI = "nombre"
+
+#Name SET
+#METHOD = "PUT"
+#URI = "nombre"
+#PAYLOAD = b"Hermenegildo"
+
+#Name Delete
+#METHOD = "DELETE"
+#URI = "nombre"
+
 
 logging.basicConfig(level=logging.INFO)
 

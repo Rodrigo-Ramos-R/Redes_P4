@@ -7,7 +7,7 @@
 
 #include <openthread/coap.h>
 #include <openthread/cli.h>
-#include "led.h"
+#include "LED.h"
 #include "Temp_sensor.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,24 +28,31 @@ void handle_led_request(void *aContext, otMessage *aMessage, const otMessageInfo
     if (payload[0] == '1')
     {
         // Turn LED on
-        otCliOutputFormat("Payload Recived: %s\r\n", payload);
+        otCliOutputFormat("Payload Received: %s\r\n", payload);
         otCliOutputFormat("LED On \r\n");
         LED_ON();
-
     }
     else if (payload[0] == '0')
     {
         // Turn LED off
-        otCliOutputFormat("Payload Recived: %s\r\n", payload);
+        otCliOutputFormat("Payload Received: %s\r\n", payload);
         otCliOutputFormat("LED Off \r\n");
         LED_OFF();
     }
 
-    //Send response
+    // Send response
     otMessage *response = otCoapNewMessage(instance_g, NULL);
-    otCoapMessageInitResponse(response, aMessage, OT_COAP_TYPE_ACKNOWLEDGMENT, OT_COAP_CODE_CHANGED);
-    otCoapSendResponse(instance_g, response, aMessageInfo);
+    if (response != NULL)
+    {
+        otCoapMessageInitResponse(response, aMessage, OT_COAP_TYPE_ACKNOWLEDGMENT, OT_COAP_CODE_CHANGED);
+        otCoapSendResponse(instance_g, response, aMessageInfo);
+    }
+    else
+    {
+        otCliOutputFormat("Error: Failed to allocate CoAP response message.\r\n");
+    }
 }
+
 
 void handle_sensor_request(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo)
 {
@@ -77,6 +84,74 @@ void handle_sensor_request(void *aContext, otMessage *aMessage, const otMessageI
     }
 }
 
+#define MAX_NAME_LENGTH 32
+static char current_name[MAX_NAME_LENGTH] = "rodrigo";
+
+void handle_nombre_request(void *aContext, otMessage *aMessage, const otMessageInfo *aMessageInfo)
+{
+    otMessage *response;
+    otCoapCode code = otCoapMessageGetCode(aMessage);
+
+    switch (code)
+    {
+        case OT_COAP_CODE_GET:
+            otCliOutputFormat("GET nombre\r\n");
+
+            response = otCoapNewMessage(instance_g, NULL);
+            if (response != NULL)
+            {
+                otCoapMessageInitResponse(response, aMessage, OT_COAP_TYPE_ACKNOWLEDGMENT, OT_COAP_CODE_CONTENT);
+                otCoapMessageSetPayloadMarker(response);
+
+                otCliOutputFormat("payload: %s\r\n", current_name);
+                otMessageAppend(response, current_name, strlen(current_name));
+                otCoapSendResponse(instance_g, response, aMessageInfo);
+            }
+            break;
+
+        case OT_COAP_CODE_PUT:
+        {
+            otCliOutputFormat("PUT nombre\r\n");
+            char new_name[MAX_NAME_LENGTH];
+            int len = otMessageRead(aMessage, otMessageGetOffset(aMessage), new_name, sizeof(new_name) - 1);
+            new_name[len] = '\0';
+
+            strncpy(current_name, new_name, MAX_NAME_LENGTH);
+            current_name[MAX_NAME_LENGTH - 1] = '\0'; // Ensure null-termination
+
+            otCliOutputFormat("Updated name to: %s\r\n", current_name);
+
+            response = otCoapNewMessage(instance_g, NULL);
+            if (response != NULL)
+            {
+                otCoapMessageInitResponse(response, aMessage, OT_COAP_TYPE_ACKNOWLEDGMENT, OT_COAP_CODE_CHANGED);
+                otCoapSendResponse(instance_g, response, aMessageInfo);
+            }
+            break;
+        }
+
+        case OT_COAP_CODE_DELETE:
+            otCliOutputFormat("DELETE nombre\r\n");
+
+            current_name[0] = '\0'; // Clear the name
+
+            response = otCoapNewMessage(instance_g, NULL);
+            if (response != NULL)
+            {
+                otCoapMessageInitResponse(response, aMessage, OT_COAP_TYPE_ACKNOWLEDGMENT, OT_COAP_CODE_DELETED);
+                otCoapSendResponse(instance_g, response, aMessageInfo);
+            }
+            break;
+
+        default:
+            otCliOutputFormat("Unsupported CoAP code: %d\r\n", code);
+            break;
+    }
+}
+
+
+
+
 
 void init_coap_server(otInstance *aInstance)
 {
@@ -88,7 +163,8 @@ void init_coap_server(otInstance *aInstance)
     
     static otCoapResource coapResource_led;
     static otCoapResource coapResource_sensor;
-    
+    static otCoapResource coapResource_nombre;
+	
     coapResource_led.mUriPath = "led";
     coapResource_led.mHandler = handle_led_request;
     coapResource_led.mContext = NULL;
@@ -102,4 +178,11 @@ void init_coap_server(otInstance *aInstance)
     coapResource_sensor.mNext = NULL;
 
     otCoapAddResource(aInstance, &coapResource_sensor);
+	
+	coapResource_nombre.mUriPath = "nombre";
+	coapResource_nombre.mHandler = handle_nombre_request;
+	coapResource_nombre.mContext = NULL;
+	coapResource_nombre.mNext = NULL;
+
+	otCoapAddResource(aInstance, &coapResource_nombre);
 }
